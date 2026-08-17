@@ -79,6 +79,18 @@ def silence_kaggle_prints():
             sys.stderr = old_stderr
 
 
+def silence_sklearn_deprecation_warnings() -> None:
+    """Hide sklearn Future/Deprecation warnings (e.g. force_all_finite -> ensure_all_finite).
+
+    Display-only: does not change any code logic, just stops the warnings from printing.
+    """
+    warnings.filterwarnings(
+        'ignore',
+        message=".*'force_all_finite' was renamed to 'ensure_all_finite'.*",
+        category=FutureWarning,
+    )
+
+
 class _FilteredStream(io.TextIOBase):
     """Stream wrapper that drops lines matching any of the given markers."""
     def __init__(self, stream, markers):

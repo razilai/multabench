@@ -1,5 +1,9 @@
 import argparse
 
+from multabench.utils.warnings import silence_sklearn_deprecation_warnings
+
+silence_sklearn_deprecation_warnings()
+
 from tabstar.training.devices import get_device
 
 from multabench.datasets.multimodal import MultimodalError, MultimodalState
