@@ -12,10 +12,8 @@ from tabstar.preprocessing.sparse import densify_objects
 from tabstar.preprocessing.splits import split_to_val
 
 from multabench.baselines.preprocessing.feature_types import transform_feature_types
-from multabench.baselines.preprocessing.image_embeddings import (
-    transform_image_features,
-    fit_image_encoders,
-)
+from multabench.baselines.preprocessing.image_embeddings import transform_image_features
+from multabench.baselines.encoder_cache import cached_fit_text_encoders, cached_fit_image_encoders
 from multabench.baselines.training.metrics import calculate_metric, Metrics
 from multabench.datasets.all_datasets import MultimodalDatasetID
 from multabench.baselines.preprocessing.categorical import fit_categorical_encoders, transform_categorical_features
@@ -25,7 +23,7 @@ from multabench.baselines.preprocessing.target import transform_preprocess_y, fi
 from multabench.datasets.multimodal import MultimodalError
 from multabench.dino.constants import DINOV3_SMALL
 from multabench.e5.constants import E5_SMALL_V2
-from multabench.baselines.preprocessing.text_embeddings import E5ColumnEncoder, fit_text_encoders, transform_text_features
+from multabench.baselines.preprocessing.text_embeddings import E5ColumnEncoder, transform_text_features
 from multabench.datasets.objects import SupervisedTask
 from multabench.baselines.preprocessing.feature_types import detect_image_features
 from multabench.utils.warnings import silence_baselines_prints
@@ -49,6 +47,7 @@ class TabularModel:
                  tune_e5: bool = False,
                  e5_train_kwargs: Optional[Dict[str, Any]] = None,
                  e5_model_name: str = E5_SMALL_V2,
+                 e5_encode_kwargs: Optional[Dict[str, Any]] = None,
                  pca_components: int = 30,
                  no_pca: bool = False,
                  **kwargs):
@@ -69,6 +68,7 @@ class TabularModel:
         self.tune_e5 = tune_e5
         self.e5_train_kwargs = e5_train_kwargs or {}
         self.e5_model_name = e5_model_name
+        self.e5_encode_kwargs = e5_encode_kwargs or {}
         self.pca_components = pca_components
         self.no_pca = no_pca
         self.model_ = self.initialize_model()
@@ -107,7 +107,7 @@ class TabularModel:
         if self.USE_CATEGORICAL_ENCODING:
             self.categorical_encoders = fit_categorical_encoders(x=x_train, categorical_features=self.categorical_features)
         if self.USE_TEXT_EMBEDDINGS:
-            self.text_transformers = fit_text_encoders(
+            self.text_transformers = cached_fit_text_encoders(
                 x=x_train,
                 text_features=self.text_features,
                 device=self.device,
@@ -117,6 +117,7 @@ class TabularModel:
                 is_cls=self.is_cls,
                 d_output=self.d_output,
                 e5_model_name=self.e5_model_name,
+                e5_encode_kwargs=self.e5_encode_kwargs,
                 pca_components=self.pca_components,
                 no_pca=self.no_pca,
             )
@@ -173,7 +174,7 @@ class TabularModel:
             self.d_output = len(set(y))
         else:
             self.d_output = 1
-        self.image_transformers, self._tuned_dino_model, self._tuned_dino_processor = fit_image_encoders(
+        self.image_transformers, self._tuned_dino_model, self._tuned_dino_processor = cached_fit_image_encoders(
             x=x,
             device=self.device,
             image_folder=self.image_folder,

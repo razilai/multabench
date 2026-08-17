@@ -33,6 +33,18 @@ from multabench.e5.constants import (
     format_e5_passage,
 )
 
+# Perf: allow TF32 for the fp32 matmuls in E5 finetune/encode. Negligible precision
+# impact for this workload, sizeable speedup on Ampere+; a no-op on GPUs/builds without TF32.
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
+
+
+def _amp_training_flags() -> dict:
+    """Mixed-precision flags for the HF Trainer: bf16 on Ampere+, else fp16 on CUDA, neither on CPU."""
+    if not torch.cuda.is_available():
+        return {}
+    return {"bf16": True} if torch.cuda.is_bf16_supported() else {"fp16": True}
+
 
 def _get_lora_target_modules(layer_indices: list[int]) -> list[str]:
     target_modules = []
@@ -295,6 +307,7 @@ def finetune_e5_with_lora(
             remove_unused_columns=False,
             report_to="none",
             dataloader_num_workers=dataloader_num_workers,
+            **_amp_training_flags(),
         )
         def compute_metrics(eval_pred):
             return compute_metrics_multiclass(eval_pred, d_output=d_output_inferred)
